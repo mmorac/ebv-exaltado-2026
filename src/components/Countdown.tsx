@@ -8,8 +8,8 @@ type Labels = {
 };
 
 type CountdownProps = {
-  targetDate: string | number | Date; // admite ISO, timestamp, Date
-  labels: Labels;
+  targetDate: string | number | Date;
+  labels?: Labels;  // 👈 Optional
   className?: string;
 };
 
@@ -58,7 +58,10 @@ function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
-export const Countdown: React.FC<CountdownProps> = ({ targetDate, labels, className }) => {
+export const Countdown: React.FC<CountdownProps> = ({ 
+  targetDate, 
+  labels = { days: "DÍAS", hours: "HRS", minutes: "MIN", seconds: "SEG" },
+  className }) => {
   const target = useMemo(() => toDate(targetDate), [targetDate]);
 
   // 👇 Clave: calcular YA en el primer render (no esperar al useEffect) para evitar parpadeo o null
@@ -111,3 +114,5 @@ const TimeBox: React.FC<{ value: string; label: string; color?: string }> = ({ v
     </div>
   </div>
 );
+
+export default Countdown;

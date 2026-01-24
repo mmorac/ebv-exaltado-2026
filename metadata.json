@@ -1,5 +1,5 @@
 {
-  "name": "EBV Exaltado 2026",
-  "description": "Sitio web oficial de registro e información para la Escuela Bíblica de Verano ¡Exaltado! 2026.",
+  "name": "Family Registration App",
+  "description": "A family registration form for events, managing guardians and children with specific details including medical and dietary needs.",
   "requestFramePermissions": []
 }

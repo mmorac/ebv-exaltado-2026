@@ -1,60 +1,28 @@
-import { RegistrationData, AgeGroup } from '../types';
+import { AgeGroup, ChildInput, GuardianInfo, RegistrationResult, FlatRegistration } from '../types';
+import React from 'react';
 
-const STORAGE_KEY_REGISTRATIONS = 'ebv_registrations_2026';
-const MAX_SPOTS_PER_GROUP = 15;
-// The event starts on July 13, 2026. Ages are calculated based on this date.
-const EVENT_START_DATE = '2026-07-13';
+// Fecha de inicio de la EBV: 13 de Julio de 2026
+const EVENT_DATE = new Date('2026-07-13');
+const CAPACITY_PER_GROUP = 15;
 
-// Updated colors:
-// Bichitos (Sky) -> text-sky-600 (Was Emerald)
-// Escarabajos (Purple) -> text-violet-600
-// Escorpiones (Orange/Amber) -> text-amber-600
-export const GROUP_CONFIG: Record<AgeGroup, { min: number; max: number; color: string; icon: string }> = {
-  'Bichitos': { min: 4, max: 6, color: 'text-sky-600', icon: '🐞' },
-  'Escarabajos': { min: 7, max: 9, color: 'text-violet-600', icon: '🪲' },
-  'Escorpiones': { min: 10, max: 12, color: 'text-amber-600', icon: '🦂' }
+// Helper para normalización estricta (SGIC Rule #2)
+export const normalizeIdentity = (text: string): string => {
+  if (!text) return '';
+  return text
+    .toUpperCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Eliminar tildes
+    .replace(/[^A-Z0-9\s]/g, '') // Eliminar caracteres especiales
+    .replace(/\s+/g, ' ') // Eliminar espacios dobles
+    .trim();
 };
 
-export const getRegisteredChildren = (): RegistrationData[] => {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY_REGISTRATIONS);
-    return data ? JSON.parse(data) : [];
-  } catch (e) {
-    console.error("Error reading registrations", e);
-    return [];
-  }
-};
-
-export const getSpotsLeft = (): Record<AgeGroup, number> => {
-  const registered = getRegisteredChildren();
-  const counts: Record<AgeGroup, number> = {
-    'Bichitos': 0,
-    'Escarabajos': 0,
-    'Escorpiones': 0
-  };
-  
-  registered.forEach(child => {
-    if (child.group && counts[child.group] !== undefined) {
-      counts[child.group]++;
-    }
-  });
-
-  return {
-    'Bichitos': Math.max(0, MAX_SPOTS_PER_GROUP - counts['Bichitos']),
-    'Escarabajos': Math.max(0, MAX_SPOTS_PER_GROUP - counts['Escarabajos']),
-    'Escorpiones': Math.max(0, MAX_SPOTS_PER_GROUP - counts['Escorpiones'])
-  };
-};
-
-// Calculates age based on the Event Start Date, not today's date.
 export const calculateAge = (birthDate: string): number => {
-  const targetDate = new Date(EVENT_START_DATE);
+  if (!birthDate) return 0;
   const birth = new Date(birthDate);
-  
-  let age = targetDate.getFullYear() - birth.getFullYear();
-  const m = targetDate.getMonth() - birth.getMonth();
-  
-  if (m < 0 || (m === 0 && targetDate.getDate() < birth.getDate())) {
+  // Calculamos la edad que tendrá el niño el día del evento
+  let age = EVENT_DATE.getFullYear() - birth.getFullYear();
+  const m = EVENT_DATE.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && EVENT_DATE.getDate() < birth.getDate())) {
     age--;
   }
   return age;
@@ -67,31 +35,154 @@ export const determineGroup = (age: number): AgeGroup | null => {
   return null;
 };
 
-export const registerChild = (data: RegistrationData): { success: boolean; message: string } => {
-  const age = calculateAge(data.birthDate);
-  const group = determineGroup(age);
+export const getSpotsLeft = (): Record<AgeGroup, number> => {
+  // 1. Obtener registros existentes del almacenamiento
+  const storedData = localStorage.getItem('registrations');
+  const registrations = storedData ? JSON.parse(storedData) : [];
 
-  if (!group) {
-    return { success: false, message: 'La edad del niño (al 13 de Julio de 2026) no corresponde a ninguno de nuestros grupos (4-12 años).' };
-  }
+  // 2. Inicializar contadores
+  const takenSpots: Record<AgeGroup, number> = {
+    'Bichitos': 0,
+    'Escarabajos': 0,
+    'Escorpiones': 0
+  };
 
-  const spots = getSpotsLeft();
-  if (spots[group] <= 0) {
-    return { success: false, message: `Lo sentimos, el grupo ${group} ya está lleno.` };
-  }
+  // 3. Iterar sobre cada registro y sus niños para contar
+  registrations.forEach((reg: any) => {
+    if (reg.children && Array.isArray(reg.children)) {
+      reg.children.forEach((child: ChildInput) => {
+        const age = calculateAge(child.birthDate);
+        const group = determineGroup(age);
+        if (group) {
+          takenSpots[group]++;
+        }
+      });
+    }
+  });
 
-  const finalData = { ...data, age, group };
-  const current = getRegisteredChildren();
-  current.push(finalData);
-  localStorage.setItem(STORAGE_KEY_REGISTRATIONS, JSON.stringify(current));
-  
-  return { success: true, message: 'Registro exitoso' };
+  // 4. Calcular restantes (Máximo 15 - Ocupados)
+  return {
+    'Bichitos': Math.max(0, CAPACITY_PER_GROUP - takenSpots['Bichitos']),
+    'Escarabajos': Math.max(0, CAPACITY_PER_GROUP - takenSpots['Escarabajos']),
+    'Escorpiones': Math.max(0, CAPACITY_PER_GROUP - takenSpots['Escorpiones'])
+  };
 };
 
-export const deleteChild = (index: number): void => {
-  const current = getRegisteredChildren();
-  if (index >= 0 && index < current.length) {
-    current.splice(index, 1);
-    localStorage.setItem(STORAGE_KEY_REGISTRATIONS, JSON.stringify(current));
+export const registerFamily = (guardian: GuardianInfo, children: ChildInput[]): RegistrationResult => {
+  try {
+    const existing = JSON.parse(localStorage.getItem('registrations') || '[]');
+    
+    // Normalizamos los datos al guardar para mantener integridad
+    const normalizedChildren = children.map(child => ({
+      ...child,
+      childName: normalizeIdentity(child.childName) // Guardar nombre normalizado
+    }));
+
+    const normalizedGuardian = {
+      ...guardian,
+      guardianName: normalizeIdentity(guardian.guardianName)
+    };
+
+    const newReg = { guardian: normalizedGuardian, children: normalizedChildren, date: new Date().toISOString() };
+    localStorage.setItem('registrations', JSON.stringify([...existing, newReg]));
+    return { success: true, message: 'Registro exitoso' };
+  } catch (error) {
+    console.error("Error saving registration", error);
+    return { success: false, message: 'Error al guardar el registro.' };
   }
+};
+
+export const isDuplicate = (name: string, dob: string, guardianName: string): boolean => {
+  const existing = JSON.parse(localStorage.getItem('registrations') || '[]');
+  
+  // SGIC Rule: Normalización antes de comparar
+  const inputIdentity = normalizeIdentity(name);
+
+  return existing.some((reg: any) => 
+    reg.children.some((child: any) => 
+      // Comparamos el nombre normalizado almacenado (o lo normalizamos al vuelo si es viejo) con el input
+      normalizeIdentity(child.childName) === inputIdentity && child.birthDate === dob
+    )
+  );
+};
+
+export const GROUP_CONFIG: Record<AgeGroup, { color: string; icon: string }> = {
+  'Bichitos': { color: 'text-green-600 bg-green-50 border-green-200', icon: '🐞' },
+  'Escarabajos': { color: 'text-blue-600 bg-blue-50 border-blue-200', icon: '🪲' },
+  'Escorpiones': { color: 'text-orange-600 bg-orange-50 border-orange-200', icon: '🦂' }
+};
+
+// --- DASHBOARD SERVICES ---
+
+export const getDashboardData = (): FlatRegistration[] => {
+  const storedData = localStorage.getItem('registrations');
+  if (!storedData) return [];
+  
+  const rawData = JSON.parse(storedData);
+  const flatList: FlatRegistration[] = [];
+
+  rawData.forEach((reg: any, regIndex: number) => {
+    reg.children.forEach((child: ChildInput, childIndex: number) => {
+      const age = calculateAge(child.birthDate);
+      const group = determineGroup(age);
+      
+      flatList.push({
+        ...child,
+        ...reg.guardian,
+        id: `${regIndex}-${childIndex}`,
+        registrationDate: reg.date,
+        age: age,
+        group: group || 'Sin Grupo' as any
+      });
+    });
+  });
+
+  return flatList;
+};
+
+export const exportToCSV = (data: FlatRegistration[], filename: string) => {
+  if (!data.length) return;
+
+  // Define headers map (Key in Object -> CSV Header Name)
+  const headers = {
+    childName: 'Nombre Niño',
+    age: 'Edad',
+    group: 'Grupo',
+    guardianName: 'Tutor',
+    cellPhone: 'Teléfono',
+    photoPermission: 'Fotos (Interno)',
+    promoPermission: 'Fotos (Público)',
+    address: 'Dirección',
+    city: 'Ciudad',
+    medicalInfo: 'Médico',
+    foodAllergies: 'Alergias'
+  };
+
+  const csvRows = [];
+  
+  // Create Header Row
+  csvRows.push(Object.values(headers).join(','));
+
+  // Create Data Rows
+  data.forEach(row => {
+    const values = Object.keys(headers).map(key => {
+      const val = (row as any)[key] || '';
+      // Escape quotes and wrap in quotes to handle commas within data
+      const escaped = ('' + val).replace(/"/g, '""');
+      return `"${escaped}"`;
+    });
+    csvRows.push(values.join(','));
+  });
+
+  const csvString = csvRows.join('\n');
+  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };

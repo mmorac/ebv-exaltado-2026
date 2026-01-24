@@ -1,42 +1,51 @@
-export type AgeGroup = 'Bichitos' | 'Escarabajos' | 'Escorpiones';
-
 export type Language = 'es' | 'en' | 'pt';
 
-export interface RegistrationData {
-  childName: string;
+export type AgeGroup = 'Bichitos' | 'Escarabajos' | 'Escorpiones';
+
+export interface GuardianInfo {
   guardianName: string;
+  // Address fields
+  postalCode: string;
+  city: string;
+  province: string;
+  addressType: string;
   address: string;
+  // Contact
   workPhone: string;
-  cellPhone: string; // Label will be "Móvil"
+  cellPhone: string;
   email: string;
-  birthDate: string;
-  age?: number; // Calculated based on event date
-  group?: AgeGroup; // Assigned based on age
-  bloodGroup: string; // New field
-  lastGradeCompleted: string;
-  medicalInfo: string;
+  // Emergency
   emergencyContactName: string;
   emergencyContactPhone: string;
   pickupPersonName: string;
   pickupPersonPhone: string;
-  attendsSundaySchool: 'Si' | 'No' | '';
-  sundaySchoolLocation: string;
+  // Permissions
   invitedBy: string;
-  photoPermission: 'Si' | 'No' | '';
-  promoPermission: 'Si' | 'No' | '';
-  lopdConsent: boolean; // New field for LOPD
+  photoPermission: string;
+  promoPermission: string;
+  lopdConsent: boolean;
 }
 
-export interface ChatMessage {
+export interface ChildInput {
+  childName: string;
+  birthDate: string;
+  bloodGroup: string;
+  lastGradeCompleted: string;
+  medicalInfo: string;
+  foodAllergies: string; // Added field for dietary restrictions
+  attendsSundaySchool: string;
+  sundaySchoolLocation: string;
+}
+
+export interface RegistrationResult {
+  success: boolean;
+  message: string;
+}
+
+// Flat structure for the Data Table
+export interface FlatRegistration extends ChildInput, GuardianInfo {
   id: string;
-  text: string;
-  sender: 'user' | 'bot';
-  timestamp: Date;
-}
-
-export enum AppView {
-  HOME = 'HOME',
-  REGISTER = 'REGISTER',
-  SUCCESS = 'SUCCESS',
-  ADMIN = 'ADMIN'
+  registrationDate: string;
+  age: number;
+  group: AgeGroup | 'Sin Grupo';
 }

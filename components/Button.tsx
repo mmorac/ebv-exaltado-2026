@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline';
+  variant?: 'primary' | 'secondary';
   fullWidth?: boolean;
 }
 
@@ -12,24 +12,15 @@ export const Button: React.FC<ButtonProps> = ({
   className = '', 
   ...props 
 }) => {
-  // Added 'hover-vibrate', 'subpixel-antialiased' and 'transform-gpu' for sharpness and effect
-  const baseStyles = "px-6 py-3 rounded-full font-bold transition-all duration-300 transform active:scale-95 shadow-md flex items-center justify-center gap-2 font-display tracking-wide hover-vibrate subpixel-antialiased transform-gpu";
-  
-  // Updated Colors:
-  // Primary -> Sky Blue (Replaces Pistachio/Emerald)
-  // Secondary -> Violet (Purple elements)
-  // Outline -> Bordered Violet
+  const baseStyles = "font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2";
   const variants = {
-    primary: "bg-sky-500 hover:bg-sky-400 text-white shadow-sky-500/30",
-    secondary: "bg-violet-600 hover:bg-violet-700 text-white shadow-violet-600/30",
-    outline: "border-4 border-violet-200 text-violet-700 hover:bg-violet-50 hover:border-violet-300"
+    primary: "bg-sky-500 hover:bg-sky-400 text-white shadow-lg",
+    secondary: "bg-white text-slate-700 border-2 border-slate-200 hover:bg-slate-50"
   };
-
-  const widthClass = fullWidth ? "w-full" : "";
 
   return (
     <button 
-      className={`${baseStyles} ${variants[variant]} ${widthClass} ${className}`} 
+      className={`${baseStyles} ${variants[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}
       {...props}
     >
       {children}

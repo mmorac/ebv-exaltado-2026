@@ -509,7 +509,7 @@ const App: React.FC = () => {
 
           </div>
           <div className="mt-12 md:mt-20 text-center text-sm md:text-base border-t border-violet-800 pt-8 font-black tracking-wider opacity-60 flex justify-between items-center px-4 max-w-7xl mx-auto">
-            <span>© 2026 EBV {language === 'en' ? 'MAGNIFIED' : 'EXALTADO'}.</span>
+            <span>© 2026 EBV {language === 'en' ? 'MAGNIFIED' : 'EXALTADO'}. IBMV.</span>
             <button onClick={() => setView(AppView.ADMIN)} className="text-violet-800 hover:text-violet-500 transition-colors p-2">
               <Lock size={16} />
             </button>
