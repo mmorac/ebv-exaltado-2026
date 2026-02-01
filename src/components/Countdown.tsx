@@ -88,7 +88,7 @@ export const Countdown: React.FC<CountdownProps> = ({
 
   return (
     <div className={`relative z-40 w-full flex justify-center ${className ?? ""}`}>
-      <div className="grid grid-cols-4 gap-3 md:gap-6 bg-white/95 backdrop-blur-md rounded-2xl px-4 py-3 md:px-8 md:py-6 shadow-2xl border-2 border-white/50 ring-4 ring-black/5 transform hover:scale-105 transition-transform duration-500">
+      <div className="grid grid-cols-4 gap-0.5 sm:gap-1 md:gap-2 lg:gap-3 xl:gap-6 bg-white/95 backdrop-blur-md rounded-2xl px-1 py-1 sm:px-2 sm:py-2 md:px-4 md:py-3 lg:px-8 lg:py-6 shadow-2xl border-2 border-white/50 ring-4 ring-black/5 transform hover:scale-105 transition-transform duration-500">
         <TimeBox value={String(remaining.days)} label={labels.days} color="text-sky-600" />
         <TimeBox value={pad2(remaining.hours)} label={labels.hours} color="text-violet-600" />
         <TimeBox value={pad2(remaining.minutes)} label={labels.minutes} color="text-pink-600" />
@@ -96,7 +96,7 @@ export const Countdown: React.FC<CountdownProps> = ({
       </div>
 
       {isClosed && (
-        <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] md:text-sm font-black tracking-widest text-white bg-red-600 px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap border-2 border-white animate-pulse z-50">
+        <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] sm:text-[9px] md:text-[10px] lg:text-sm font-black tracking-widest text-white bg-red-600 px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-1.5 rounded-full shadow-lg whitespace-nowrap border-2 border-white animate-pulse z-50">
           INSCRIPCIONES CERRADAS
         </div>
       )}
@@ -105,11 +105,11 @@ export const Countdown: React.FC<CountdownProps> = ({
 };
 
 const TimeBox: React.FC<{ value: string; label: string; color?: string }> = ({ value, label, color = "text-violet-900" }) => (
-  <div className="flex flex-col items-center justify-center min-w-[60px] md:min-w-[90px]">
-    <div className={`text-3xl md:text-6xl font-display leading-none ${color} drop-shadow-sm`} style={{ WebkitTextStroke: '1px rgba(0,0,0,0.05)' }}>
+  <div className="flex flex-col items-center justify-center min-w-[32px] sm:min-w-[45px] md:min-w-[60px] lg:min-w-[90px] px-0.5 py-0.5 sm:px-1 sm:py-1">
+    <div className={`text-base sm:text-xl md:text-3xl lg:text-6xl font-display leading-none ${color} drop-shadow-sm`} style={{ WebkitTextStroke: '1px rgba(0,0,0,0.05)' }}>
       {value}
     </div>
-    <div className="text-[9px] md:text-xs font-black tracking-[0.2em] text-slate-400 mt-1 md:mt-2 uppercase">
+    <div className="text-[5px] sm:text-[7px] md:text-[9px] lg:text-xs font-black tracking-[0.08em] sm:tracking-[0.15em] md:tracking-[0.2em] text-slate-400 mt-0 sm:mt-0.5 md:mt-1 lg:mt-2 uppercase">
       {label}
     </div>
   </div>

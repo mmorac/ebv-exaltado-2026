@@ -1,9 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { RegistrationData, AgeGroup, Language } from '../types';
+import { ChildInput, AgeGroup, Language, GuardianInfo } from '../../types';
 import { Button } from './Button';
 import { Check, ChevronLeft, AlertCircle, Info, ShieldCheck, Loader2 } from 'lucide-react';
-import { calculateAge, determineGroup, getSpotsLeft, registerChild, GROUP_CONFIG } from '../services/registrationService';
-import { sendConfirmationSMS } from '../services/smsService';
+import { calculateAge, determineGroup, getSpotsLeft, registerFamily, GROUP_CONFIG } from '../../services/registrationService';
+import { sendConfirmationSMS } from '../../services/smsService';
+
+// Helper functions for date format conversion
+const formatDateToISO = (dateString: string, language: Language): string => {
+  if (!dateString) return '';
+  
+  if (language === 'es' || language === 'pt') {
+    // Convert from dd/mm/yyyy to yyyy-mm-dd (ISO format for input type="date")
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+  }
+  return dateString;
+};
+
+const formatDateFromISO = (isoDate: string, language: Language): string => {
+  if (!isoDate) return '';
+  
+  if (language === 'es' || language === 'pt') {
+    // Convert from yyyy-mm-dd to dd/mm/yyyy
+    const parts = isoDate.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day}/${month}/${year}`;
+    }
+  }
+  return isoDate;
+};
 
 interface Props {
   onBack: () => void;
@@ -198,7 +227,7 @@ const translations = {
   }
 };
 
-const initialData: RegistrationData = {
+const initialData: ChildInput & GuardianInfo = {
   childName: '',
   guardianName: '',
   address: '',
@@ -209,6 +238,7 @@ const initialData: RegistrationData = {
   lastGradeCompleted: '',
   bloodGroup: '',
   medicalInfo: '',
+  foodAllergies: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
   pickupPersonName: '',
@@ -218,12 +248,16 @@ const initialData: RegistrationData = {
   invitedBy: '',
   photoPermission: '',
   promoPermission: '',
-  lopdConsent: false
+  lopdConsent: false,
+  postalCode: '',
+  city: '',
+  province: '',
+  addressType: ''
 };
 
 export const RegistrationForm: React.FC<Props> = ({ onBack, onSuccess, language, setLanguage }) => {
-  const [formData, setFormData] = useState<RegistrationData>(initialData);
-  const [errors, setErrors] = useState<Partial<Record<keyof RegistrationData, string>>>({});
+  const [formData, setFormData] = useState<ChildInput & GuardianInfo>(initialData);
+  const [errors, setErrors] = useState<Partial<Record<keyof (ChildInput & GuardianInfo), string>>>({});
   const [calculatedGroup, setCalculatedGroup] = useState<AgeGroup | null>(null);
   const [spotsLeft, setSpotsLeft] = useState<number | null>(null);
   const [ageError, setAgeError] = useState<string | null>(null);
@@ -263,14 +297,14 @@ export const RegistrationForm: React.FC<Props> = ({ onBack, onSuccess, language,
        // Handled separately below
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
-      if (errors[name as keyof RegistrationData]) {
+      if (errors[name as keyof (ChildInput & GuardianInfo)]) {
         setErrors(prev => ({ ...prev, [name]: undefined }));
       }
     }
   };
 
   const validate = () => {
-    const newErrors: Partial<Record<keyof RegistrationData, string>> = {};
+    const newErrors: Partial<Record<keyof (ChildInput & GuardianInfo), string>> = {};
     if (!formData.childName) newErrors.childName = t.errors.childName;
     if (!formData.guardianName) newErrors.guardianName = t.errors.guardianName;
     if (!formData.cellPhone) newErrors.cellPhone = t.errors.cellPhone;
@@ -291,7 +325,7 @@ export const RegistrationForm: React.FC<Props> = ({ onBack, onSuccess, language,
       setIsSubmitting(true);
       
       // 1. Register locally
-      const result = registerChild(formData);
+      const result = registerFamily({ ...formData }, [{ ...formData }]);
       
       if (result.success) {
         // 2. Simulate SMS sending
@@ -391,7 +425,38 @@ export const RegistrationForm: React.FC<Props> = ({ onBack, onSuccess, language,
 
             <div className={sectionContainerClass}>
               <label className={sectionLabelClass}>{t.birthDate}</label>
-              <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} className={getErrorInputClass(!!errors.birthDate)} />
+              <input 
+                type="text" 
+                name="birthDate" 
+                value={formData.birthDate ? formatDateFromISO(formData.birthDate, 'es') : ''} 
+                onChange={(e) => {
+                  let value = e.target.value;
+                  // Only allow numbers and slashes
+                  value = value.replace(/[^0-9/]/g, '');
+                  // Auto-format to dd/mm/yyyy
+                  if (value.length === 2 && !value.includes('/')) {
+                    value = value + '/';
+                  } else if (value.length === 5 && value.indexOf('/') === 2) {
+                    value = value + '/';
+                  }
+                  // Convert dd/mm/yyyy to ISO yyyy-mm-dd for storage
+                  let isoValue = value;
+                  if (value.length === 10 && value.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                    const parts = value.split('/');
+                    const [day, month, year] = parts;
+                    isoValue = `${year}-${month}-${day}`;
+                  }
+                  handleChange({
+                    target: {
+                      name: 'birthDate',
+                      value: isoValue
+                    }
+                  } as React.ChangeEvent<HTMLInputElement>);
+                }}
+                placeholder="dd/mm/yyyy"
+                className={getErrorInputClass(!!errors.birthDate)}
+                maxLength={10}
+              />
               
               {ageError && (
                 <div className="mt-3 flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-xl text-sm font-bold">
