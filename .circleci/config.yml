@@ -39,4 +39,4 @@ jobs:
           at: .
       - run:
           name: Deploy to Firebase
-          command: npm install -g firebase-tools && firebase deploy --token=$FIREBASE_TOKEN
+          command: npx firebase-tools@latest firebase deploy --token $FIREBASE_TOKEN
