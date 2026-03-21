@@ -29,6 +29,7 @@ jobs:
           root: .
           paths:
             - dist
+            - functions
             - .firebaserc
             - firebase.json
 
