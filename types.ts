@@ -49,3 +49,8 @@ export interface FlatRegistration extends ChildInput, GuardianInfo {
   age: number;
   group: AgeGroup | 'Sin Grupo';
 }
+
+export interface RegistrationData {
+  guardian: GuardianInfo;
+  children: ChildInput[];
+}

@@ -280,7 +280,6 @@ export const RegistrationForm: React.FC<Props> = ({ onBack, onSuccess, language,
         setAgeError(null);
         const spots = getSpotsLeft()[group];
         setSpotsLeft(spots);
-        setFormData(prev => ({ ...prev, age, group }));
       } else {
         setCalculatedGroup(null);
         setSpotsLeft(null);
@@ -325,14 +324,45 @@ export const RegistrationForm: React.FC<Props> = ({ onBack, onSuccess, language,
       setIsSubmitting(true);
       
       // 1. Register locally
-      const result = registerFamily({ ...formData }, [{ ...formData }]);
+      const guardian: GuardianInfo = {
+        guardianName: formData.guardianName,
+        postalCode: formData.postalCode || '',
+        city: formData.city || '',
+        province: formData.province || '',
+        addressType: formData.addressType || '',
+        address: formData.address || '',
+        workPhone: formData.workPhone || '',
+        cellPhone: formData.cellPhone,
+        email: formData.email || '',
+        emergencyContactName: formData.emergencyContactName,
+        emergencyContactPhone: formData.emergencyContactPhone || '',
+        pickupPersonName: formData.pickupPersonName || '',
+        pickupPersonPhone: formData.pickupPersonPhone || '',
+        invitedBy: formData.invitedBy || '',
+        photoPermission: formData.photoPermission || 'No',
+        promoPermission: formData.promoPermission || 'No',
+        lopdConsent: formData.lopdConsent
+      };
+
+      const children: ChildInput[] = [{
+        childName: formData.childName,
+        birthDate: formData.birthDate,
+        bloodGroup: formData.bloodGroup || '',
+        lastGradeCompleted: formData.lastGradeCompleted || '',
+        medicalInfo: formData.medicalInfo || '',
+        foodAllergies: formData.foodAllergies || '',
+        attendsSundaySchool: formData.attendsSundaySchool || '',
+        sundaySchoolLocation: formData.sundaySchoolLocation || ''
+      }];
+      
+      // 2. Register via Firebase Function
+      const result = await registerFamily(guardian, children);
       
       if (result.success) {
-        // 2. Simulate SMS sending
+        // 3. Send SMS
         await sendConfirmationSMS(formData);
         
-        // 3. Complete
-        setIsSubmitting(false);
+        // 4sSubmitting(false);
         onSuccess();
       } else {
         setIsSubmitting(false);
@@ -428,7 +458,7 @@ export const RegistrationForm: React.FC<Props> = ({ onBack, onSuccess, language,
               <input 
                 type="text" 
                 name="birthDate" 
-                value={formData.birthDate ? formatDateFromISO(formData.birthDate, 'es') : ''} 
+                value={formData.birthDate ? formatDateFromISO(formData.birthDate, language) : ''} 
                 onChange={(e) => {
                   let value = e.target.value;
                   // Only allow numbers and slashes

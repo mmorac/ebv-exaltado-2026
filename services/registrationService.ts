@@ -1,5 +1,5 @@
-import { AgeGroup, ChildInput, GuardianInfo, RegistrationResult, FlatRegistration } from '../types';
-import React from 'react';
+import { AgeGroup, ChildInput, GuardianInfo, RegistrationData, RegistrationResult, FlatRegistration } from '../types';
+
 
 // Fecha de inicio de la EBV: 13 de Julio de 2026
 const EVENT_DATE = new Date('2026-07-13');
@@ -35,21 +35,20 @@ export const determineGroup = (age: number): AgeGroup | null => {
   return null;
 };
 
-export const getSpotsLeft = (): Record<AgeGroup, number> => {
-  // 1. Obtener registros existentes del almacenamiento
-  const storedData = localStorage.getItem('registrations');
-  const registrations = storedData ? JSON.parse(storedData) : [];
+export const getSpotsLeft = async (): Promise<Record<AgeGroup, number>> => {
+  try {
+    const response = await fetch(`${FUNCTIONS_BASE_URL}/obtenerinscripciones`);
+    const result = await response.json();
 
-  // 2. Inicializar contadores
-  const takenSpots: Record<AgeGroup, number> = {
-    'Bichitos': 0,
-    'Escarabajos': 0,
-    'Escorpiones': 0
-  };
+    if (!result.success || !result.data) return { 'Bichitos': 15, 'Escarabajos': 15, 'Escorpiones': 15 };
 
-  // 3. Iterar sobre cada registro y sus niños para contar
-  registrations.forEach((reg: any) => {
-    if (reg.children && Array.isArray(reg.children)) {
+    const takenSpots: Record<AgeGroup, number> = {
+      'Bichitos': 0,
+      'Escarabajos': 0,
+      'Escorpiones': 0
+    };
+
+    result.data.forEach((reg: RegistrationData) => {
       reg.children.forEach((child: ChildInput) => {
         const age = calculateAge(child.birthDate);
         const group = determineGroup(age);
@@ -57,25 +56,24 @@ export const getSpotsLeft = (): Record<AgeGroup, number> => {
           takenSpots[group]++;
         }
       });
-    }
-  });
+    });
 
-  // 4. Calcular restantes (Máximo 15 - Ocupados)
-  return {
-    'Bichitos': Math.max(0, CAPACITY_PER_GROUP - takenSpots['Bichitos']),
-    'Escarabajos': Math.max(0, CAPACITY_PER_GROUP - takenSpots['Escarabajos']),
-    'Escorpiones': Math.max(0, CAPACITY_PER_GROUP - takenSpots['Escorpiones'])
-  };
+    return {
+      'Bichitos': Math.max(0, CAPACITY_PER_GROUP - takenSpots['Bichitos']),
+      'Escarabajos': Math.max(0, CAPACITY_PER_GROUP - takenSpots['Escarabajos']),
+      'Escorpiones': Math.max(0, CAPACITY_PER_GROUP - takenSpots['Escorpiones'])
+    };
+  } catch {
+    return { 'Bichitos': 15, 'Escarabajos': 15, 'Escorpiones': 15 };
+  }
 };
 
-export const registerFamily = (guardian: GuardianInfo, children: ChildInput[]): RegistrationResult => {
+export const registerFamily = async (guardian: GuardianInfo, children: ChildInput[]): Promise<RegistrationResult> => {
   try {
-    const existing = JSON.parse(localStorage.getItem('registrations') || '[]');
-    
-    // Normalizamos los datos al guardar para mantener integridad
+    // Normalizamos antes de enviar
     const normalizedChildren = children.map(child => ({
       ...child,
-      childName: normalizeIdentity(child.childName) // Guardar nombre normalizado
+      childName: normalizeIdentity(child.childName)
     }));
 
     const normalizedGuardian = {
@@ -83,27 +81,47 @@ export const registerFamily = (guardian: GuardianInfo, children: ChildInput[]): 
       guardianName: normalizeIdentity(guardian.guardianName)
     };
 
-    const newReg = { guardian: normalizedGuardian, children: normalizedChildren, date: new Date().toISOString() };
-    localStorage.setItem('registrations', JSON.stringify([...existing, newReg]));
-    return { success: true, message: 'Registro exitoso' };
+    const response = await fetch(`${FUNCTIONS_BASE_URL}/guardarinscripcion`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        guardian: normalizedGuardian,
+        children: normalizedChildren
+      }),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      return { success: true, message: result.message || 'Registro exitoso en Firestore' };
+    } else {
+      return { success: false, message: result.error || 'Error en el servidor' };
+    }
   } catch (error) {
-    console.error("Error saving registration", error);
-    return { success: false, message: 'Error al guardar el registro.' };
+    console.error("Error calling Firebase Function:", error);
+    return { success: false, message: 'Error de conexión al servidor' };
   }
 };
 
-export const isDuplicate = (name: string, dob: string, guardianName: string): boolean => {
-  const existing = JSON.parse(localStorage.getItem('registrations') || '[]');
-  
-  // SGIC Rule: Normalización antes de comparar
-  const inputIdentity = normalizeIdentity(name);
+export const isDuplicate = async (name: string, dob: string, guardianName: string): Promise<boolean> => {
+  try {
+    const response = await fetch(`${FUNCTIONS_BASE_URL}/obtenerinscripciones`);
+    const result = await response.json();
 
-  return existing.some((reg: any) => 
-    reg.children.some((child: any) => 
-      // Comparamos el nombre normalizado almacenado (o lo normalizamos al vuelo si es viejo) con el input
-      normalizeIdentity(child.childName) === inputIdentity && child.birthDate === dob
-    )
-  );
+    if (!result.success || !result.data) return false;
+
+    const inputIdentity = normalizeIdentity(name);
+
+    return result.data.some((reg: RegistrationData) => 
+      reg.children.some((child: ChildInput) => 
+        normalizeIdentity(child.childName) === inputIdentity && child.birthDate === dob
+      )
+    );
+  } catch {
+    return false;
+  }
 };
 
 export const GROUP_CONFIG: Record<AgeGroup, { color: string; icon: string }> = {
@@ -186,3 +204,6 @@ export const exportToCSV = (data: FlatRegistration[], filename: string) => {
   link.click();
   document.body.removeChild(link);
 };
+
+// Firebase Functions URL (ajusta región/project si necesario)
+const FUNCTIONS_BASE_URL = 'https://us-central1-ebvmasvida2026.cloudfunctions.net';
