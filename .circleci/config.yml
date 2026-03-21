@@ -39,5 +39,8 @@ jobs:
       - attach_workspace:
           at: .
       - run:
+          name: Build functions
+          command: cd functions && npm ci && npm run build
+      - run:
           name: Deploy to Firebase
           command: npx firebase-tools@latest deploy --token $FIREBASE_TOKEN
